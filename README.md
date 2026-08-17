@@ -150,7 +150,7 @@ DLL Mode (Silent Loader):
 ```
      ├── SysUnlocked.dll         # Silent loader version
      ├── sys.ini                 # Configuration file
-│    └── MyDriver.sys            # Your driver (placed manually)
+     └── MyDriver.sys            # Your driver (placed manually)
 ```
 
 ---
