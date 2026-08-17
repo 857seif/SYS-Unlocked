@@ -49,15 +49,62 @@ SysUnlocked says:
 
 NO.
 
-Requirement Normal Way SysUnlocked
-Signed Driver ✅ Required ❌ Bypassed
-Test Mode ✅ Required ❌ Bypassed
-BCDEdit ✅ Required ❌ Bypassed
-Reboot ✅ Required ❌ Bypassed
-Secure Boot Off ✅ Required ❌ Bypassed
-EV Certificate ✅ Required ❌ Bypassed
-Admin Rights ✅ Required ✅ Required
-Time Hours Seconds
+<table>
+  <thead>
+    <tr>
+      <th>🔒 Requirement</th>
+      <th>🛡️ Normal Way</th>
+      <th>⚡ SysUnlocked</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Signed Driver</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Test Mode</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>BCDEdit</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Reboot</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Secure Boot Off</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>EV Certificate</strong></td>
+      <td>✅ Required</td>
+      <td>❌ <strong>Bypassed</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Admin Rights</strong></td>
+      <td>✅ Required</td>
+      <td>✅ Required</td>
+    </tr>
+    <tr>
+      <td><strong>Time</strong></td>
+      <td>⏳ Hours</td>
+      <td>⚡ Seconds</td>
+    </tr>
+    <tr>
+      <td><strong>Difficulty</strong></td>
+      <td>🔴 High</td>
+      <td>🟢 Easy</td>
+    </tr>
+  </tbody>
+</table>
 
 ---
 
@@ -254,7 +301,7 @@ If you found this useful, give it a ⭐ and share it with your fellow kernel hac
 
 ---
 
-💀 Final Word
+ Final Word
 
 "Rules are for those who follow them. We write our own."
 
