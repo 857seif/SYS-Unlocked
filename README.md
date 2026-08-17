@@ -195,7 +195,7 @@ Replace yourDriver.sys with the actual name of your driver file. The DLL will re
 🔧 How to Load the DLL
 
 For a professional and easy way to load the DLL, check out:
-👉 custom-dll-proxy
+👉 https://github.com/857seif/custom-dll-proxy
 
 This project demonstrates a clean, reliable method for DLL proxying and loading. Use it as a reference for integrating SysUnlocked.dll into any application.
 
