@@ -19,13 +19,21 @@ jobs:
         install: mingw-w64-x86_64-gcc
         update: true
     
-    - name: Build
+    - name: Build EXE
       shell: msys2 {0}
       run: |
         cd src
-        g++ -O2 -mwindows -std=c++17 -o ../SysLoader.exe main.cpp -lcomctl32 -ladvapi32 -lshlwapi -luser32 -lgdi32 -lws2_32 -static
+        g++ -O2 -std=c++17 -o ../SysLoader.exe main.cpp -lcomctl32 -ladvapi32 -lshlwapi -luser32 -lgdi32 -lws2_32 -static -Wl,--subsystem,windows
+    
+    - name: Build DLL
+      shell: msys2 {0}
+      run: |
+        cd src
         g++ -O2 -shared -std=c++17 -o ../SysLoader.dll main.cpp -D_DLL -lcomctl32 -ladvapi32 -lshlwapi -luser32 -lgdi32 -lws2_32 -static
-        cd ..
+    
+    - name: Create sys.ini
+      shell: msys2 {0}
+      run: |
         echo "[Settings]" > sys.ini
         echo "Driver=MyDriver.sys" >> sys.ini
     
