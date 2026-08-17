@@ -1,0 +1,79 @@
+name: Build SysLoader - Windows Driver Loader
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-windres
+          mingw-w64-x86_64-make
+    
+    - name: Build EXE
+      shell: msys2 {0}
+      run: |
+        cd src
+        windres ../resources/icon.rc -O coff -o icon.res
+        g++ -O2 -mwindows -std=c++17 -o ../SysLoader.exe main.cpp icon.res -lcomctl32 -ladvapi32 -lshlwapi -luser32 -lgdi32 -lws2_32 -static
+    
+    - name: Build DLL
+      shell: msys2 {0}
+      run: |
+        cd src
+        g++ -O2 -shared -std=c++17 -o ../SysLoader.dll main.cpp icon.res -D_DLL -lcomctl32 -ladvapi32 -lshlwapi -luser32 -lgdi32 -lws2_32 -static
+    
+    - name: Create sys.ini
+      shell: msys2 {0}
+      run: |
+        echo "[Settings]" > sys.ini
+        echo "Driver=MyDriver.sys" >> sys.ini
+    
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SysLoader
+        path: |
+          SysLoader.exe
+          SysLoader.dll
+          sys.ini
+          resources/Loader.sys
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: SysLoader
+        path: release
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/SysLoader.exe
+          release/SysLoader.dll
+          release/sys.ini
+          release/Loader.sys
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN 
